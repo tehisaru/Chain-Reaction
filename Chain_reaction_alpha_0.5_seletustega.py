@@ -301,76 +301,88 @@ def chain_reaction(game, row, col, moving_blobs):
             moving_blobs.append(MovingBlob(start_pos, end_pos, color, time.time()))
 
 def update_game(game, moving_blobs):
-    # Don't process anything if the game hasn't started
+    # Skip if game hasn't started yet
     if game.turns_played == 0:
         return
 
     current_time = time.time()
-    completed_blobs = []
-    cells_to_check = set()
+    completed_blobs = []  # List to store blobs that finished moving
+    cells_to_check = set()  # Cells that might trigger chain reactions
     
-    # Update positions and collect completed animations
+    # Update all moving blobs and collect ones that finished
     for blob in moving_blobs:
-        if blob.update_position(current_time):
+        if blob.update_position(current_time):  # Returns True if animation is done
             completed_blobs.append(blob)
+            # Convert pixel position to grid coordinates
             col = int(blob.end_pos[0] // CELL_SIZE)
             row = int(blob.end_pos[1] // CELL_SIZE)
+            # Add dot to cell and check if it should explode
             if game.add_dot_to_cell(row, col, blob.color):
                 cells_to_check.add((row, col))
     
-    # Remove completed blobs
+    # Clean up completed animations
     for blob in completed_blobs:
         moving_blobs.remove(blob)
     
-    # Process chain reactions for completed movements
+    # Handle any chain reactions from completed movements
     for row, col in cells_to_check:
         chain_reaction(game, row, col, moving_blobs)
     
-    # Only check for winner when all animations are complete
+    # Check for winner only when all animations are done
     if not moving_blobs and not cells_to_check and game.turns_played > 1:
         if game.check_winner():
             game.game_over = True
             game.winner = game.current_player
 
 def make_move(game, row, col, moving_blobs):
+    # Validate move
     if game.game_over or not game.is_valid_move(row, col):
         return False
     
-    # Add dot to the selected cell
+    # Add dot and start chain reaction if needed
     if game.add_dot_to_cell(row, col, game.current_player):
         chain_reaction(game, row, col, moving_blobs)
     
     game.turns_played += 1
-    # Change turns immediately after a successful move
+    # Switch to other player
     game.current_player = BLUE if game.current_player == RED else RED
     return True
 
 def main():
-    game = Game()
-    clock = pygame.time.Clock()
-    moving_blobs = []
+    game = Game()  # Initialize new game
+    clock = pygame.time.Clock()  # For controlling frame rate
+    moving_blobs = []  # List to track all moving animations
     
+    # Main game loop
     while True:
+        # Handle all events (mouse clicks, keyboard, etc.)
         for event in pygame.event.get():
+            # Quit if window is closed
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             
+            # Handle mouse clicks during game
             if event.type == pygame.MOUSEBUTTONDOWN and not game.game_over:
                 mouse_x, mouse_y = pygame.mouse.get_pos()
+                # Convert mouse position to grid coordinates
                 col = mouse_x // CELL_SIZE
                 row = mouse_y // CELL_SIZE
                 make_move(game, row, col, moving_blobs)
             
+            # Reset game when 'R' is pressed
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                 game = Game()
                 moving_blobs.clear()
         
+        # Update game state and animations
         update_game(game, moving_blobs)
+        # Draw everything to the screen
         draw_game(game)
         draw_moving_blobs(WINDOW, moving_blobs)
-        pygame.display.flip()
-        clock.tick(60)
+        pygame.display.flip()  # Update the display
+        clock.tick(60)  # Limit to 60 FPS
+
 
 if __name__ == "__main__":
     main()
